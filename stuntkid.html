@@ -1,0 +1,277 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8" />
+	<title>StuntKid</title>
+	<script type="text/javascript" src="js/phaser.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update ,render:render});
+
+function preload() {
+		game.load.image('sky','assets/sky.png');
+  		game.load.image('ground', 'assets/platform.png');
+		game.load.image('star','assets/star.png');
+		game.load.spritesheet('dude','assets/dude.png',32,48);
+		game.load.spritesheet('baddie','assets/baddie.png',32,30);
+}
+var platforms;
+var player;
+var stars;
+var spikes;
+var score = 0;
+var scoreText;
+var enemyMovement=1;
+var timer,timerEvent;
+var gameWonText,toWinGameText;
+
+   //movement 1 : right; movement 2 : left;
+function create() {
+
+	game.physics.startSystem(Phaser.Physics.ARCADE);
+	game.add.sprite(0,0,'sky');
+	scoreText = game.add.text(16, 16, 'score: 0', { fontSize: '32px', fill: '#000' });
+	gameOverText = game.add.text(game.world.centerX,game.world.centerY,'Game Over !!',{fontSize:'100px',fill : '#000'});
+	gameWonText = game.add.text(game.world.centerX,game.world.centerY,'You Win!!!',{fontSize:'100px',fill:'#000'});
+	toWinGameText = game.add.text(game.world.centerX-200,16,'Score greater than 300 to win ',{ fontSize: '20px', fill: '#00000' });
+	gameWonText.visible = false;
+	gameOverText.visible = false;
+	platforms = game.add.group();
+
+	platforms.enableBody = true;
+
+	var ground = platforms.create(0,game.world.height-64,'ground');
+
+	ground.scale.setTo(2,2);
+
+	ground.body.immovable = true;
+
+		for(var i =0;i<2;i++)
+		{
+			var x = i+1;
+			//createLedge(Math.random()*40,(game.world.height-230)*x,'ground');
+		}
+
+     player = game.add.sprite(52,game.world.height-150,'dude');
+     var baddie = new Baddie(game,game.world.width-300,game.world.height-150,1);
+	 game.add.existing(baddie);
+
+
+    game.physics.arcade.enable(player); 
+
+    player.body.bounce.y = 0.2;
+    player.body.gravity.y = 300;
+    player.body.collideWorldBounds = true;
+
+    player.animations.add('left',[0,1,2,3],10,true);
+    player.animations.add('right',[5,6,7,8],10,true);
+
+		cursors = game.input.keyboard.createCursorKeys();
+
+		//creating stars..
+		stars = game.add.group();
+		stars.enableBody = true;
+	
+		for(var i =0; i<90;i++)
+		{
+			var star = stars.create(i*20,0,'star');
+			star.body.gravity.y = Math.random()*200;
+			star.body.bounce.y = 0.7+Math.random()*0.5;
+		}
+
+	setTimer();
+
+
+}
+
+function createLedge(width,height,image)
+{
+	var ledge = platforms.create(width,height,image);
+	ledge.body.immovable = true;
+}
+
+function update() {
+
+//	var hitPlatform = game.physics.arcade.collide(player,platforms);
+ var hitPlatform=game.physics.arcade.collide(player, platforms);
+
+ game.physics.arcade.collide(spikes,platforms);
+ game.physics.arcade.collide(stars,platforms);
+ game.physics.arcade.overlap(player,stars,collectStar,null,this);
+
+
+	 //  Reset the players velocity (movement)
+	 player.body.velocity.x = 0;
+	
+
+if (cursors.left.isDown)
+{
+		//  Move to the left
+		player.body.velocity.x = -150;
+
+		player.animations.play('left');
+}
+else if (cursors.right.isDown)
+{
+		//  Move to the right
+		player.body.velocity.x = 150;
+
+		player.animations.play('right');
+}
+else
+{
+		//  Stand still
+		player.animations.stop();
+
+		player.frame = 4;
+}
+
+//  Allow the player to jump if they are touching the ground.
+if (cursors.up.isDown && player.body.touching.down && hitPlatform)
+{
+		player.body.velocity.y = -350;
+}
+
+if(!timer.running)
+{
+	death();
+} 
+
+if(score >= 300 && time.running)
+{
+  gameWonText.visible = true;
+}
+
+function collectStar(player,star)
+{
+	 star.kill();
+	 score+=10;
+	 scoreText.text = 'Score:'+ score;
+}
+
+}
+
+Baddie = function(game,x,y,dist){
+		Phaser.Sprite.call(this,game,x,y,'baddie');
+	    game.physics.enable(this, Phaser.Physics.ARCADE);
+	    this.collideWorldBounds = true;
+	    this.enableBody = true;
+
+		this.body.bounce.y=0;
+		this.body.gravity.y = 300;
+		this.body.collideWorldBounds = true;
+
+		this.animations.add('left',[0,1],10,true);
+		this.animations.add('right',[2,3],10,true);
+
+		this.body.velocity.x = 400;
+
+};
+
+Baddie.prototype = Object.create(Phaser.Sprite.prototype);
+Baddie.prototype.constructor = Baddie;
+
+Baddie.prototype.update = function(){
+	game.physics.arcade.collide(this,platforms,function(spikes){
+		if(spikes.body.velocity.x > 0 && spikes.x >=700)
+{
+  spikes.body.velocity.x = -400;
+}
+
+else if(spikes.body.velocity.x < 0 && spikes.x <=22)
+{
+   spikes.body.velocity.x = 400;
+}
+
+if(spikes.body.velocity.x >0)
+{
+	spikes.animations.play('right');
+}
+if(spikes.body.velocity.x < 0)
+{
+	spikes.animations.play('left');
+}
+
+	});
+	game.physics.arcade.collide(this,platforms,function(spike){
+		spike.body.velocity.x*=-1;
+	});
+
+	game.physics.arcade.overlap(player,this,death,null);
+
+
+}
+
+	function death()
+	{
+		console.log("killed");
+		player.kill();
+		 gameOverText.visible = true;
+		 endTimer();
+		 game.input.onTap.addOnce(restart,this);
+
+	}
+
+	
+	function restart()
+	{
+		player.revive();
+		gameOverText.visible = false;
+		stars.removeAll();
+		score = 0;
+		scoreText.text = 'Score: 0';
+		stars = game.add.group();
+		stars.removeAll();
+		stars.enableBody = true;
+	
+		for(var i =0; i<90;i++)
+		{
+			var star = stars.create(i*20,0,'star');
+			star.body.gravity.y = Math.random()*200;
+			star.body.bounce.y = 0.7+Math.random()*0.5;
+		}
+
+		//reset timer
+	
+		setTimer();
+		render();
+		
+	}
+
+	function render() 
+	{
+    //game.debug.text("Time Left: " + this.formatTime(Math.round((timerEvent.delay-timer.ms)/1000)),2,14);
+	 game.debug.text("Time Left "+formatTime(Math.round((timerEvent.delay - timer.ms) / 1000)), game.world.width-200, 44, "#0C0C0C");
+	}
+
+	function setTimer()
+	{
+		timer = game.time.create();
+		timerEvent = timer.add(Phaser.Timer.SECOND*15,this.endTimer,this);
+		timer.start();
+	}
+
+	function endTimer()
+	{
+		timer.stop();
+	}
+
+	function formatTime(s)
+	{
+		var minutes = "0" + Math.floor(s / 60);
+        var seconds = "0" + (s - minutes * 60);
+        return minutes.substr(-2) + ":" + seconds.substr(-2);   
+	}
+
+</script>
+
+</body>
+</html>
